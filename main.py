@@ -1,14 +1,14 @@
-import string
-import random
 import os
+import secrets
+import string
+import hashlib
 from datetime import datetime
 from typing import Optional
 
-from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, Response, status
+from fastapi import FastAPI, Depends, HTTPException, Response, status
 from fastapi.responses import RedirectResponse
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey, UniqueConstraint
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey, UniqueConstraint, func
 from sqlalchemy.orm import sessionmaker, Session, declarative_base
-from sqlalchemy import func
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
@@ -19,6 +19,12 @@ BASE_BEVY_URL = os.getenv("BASE_BEVY_URL") or "https://gdg.community.dev"
 BASE_BEVY_URL = BASE_BEVY_URL.rstrip("/")
 DOMAIN_URL = (os.getenv("DOMAIN_URL") or "http://127.0.0.1:8000").rstrip("/")
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./gdg_referrals.db")
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise RuntimeError(
+        "SECRET_KEY environment variable is required. "
+        "Set it in your .env file or via 'fly secrets set SECRET_KEY=...'."
+    )
 
 # --- Database Setup ---
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
@@ -67,10 +73,21 @@ class GenerateLinkResponse(BaseModel):
 # --- Helper Functions ---
 def generate_unique_code(length: int = 6) -> str:
     chars = string.ascii_letters + string.digits
-    return ''.join(random.choice(chars) for _ in range(length))
+    return ''.join(secrets.choice(chars) for _ in range(length))
+
+def hash_email(email: str) -> str:
+    """Returns a salted SHA256 hash of the email."""
+    normalized_email = email.lower().strip()
+    return hashlib.sha256((normalized_email + SECRET_KEY).encode()).hexdigest()
+
+def build_referral_url(event_path: str, referral_code: str) -> str:
+    """Constructs the full Bevy URL with UTM parameters."""
+    base = event_path if event_path.startswith("http") else f"{BASE_BEVY_URL}/{event_path}"
+    sep = "&" if "?" in base else "?"
+    return f"{base}{sep}utm_source=referral&utm_medium=member&utm_campaign={referral_code}"
 
 def record_click(db: Session, referral_id: int):
-    """Background task to record a click asynchronously"""
+    """Records a click event for a referral."""
     new_click = Click(referral_id=referral_id)
     db.add(new_click)
     db.commit()
@@ -83,43 +100,30 @@ def generate_link(request: GenerateLinkRequest, response: Response, db: Session 
     Generates a unique referral link for a member and specific event.
     If a link already exists for this email and event, returns the existing one.
     """
-    # Clean the event path to avoid double slashes
     clean_path = request.event_path.lstrip("/")
+    hashed_email = hash_email(request.member_email)
 
-    # 1. Check if this member already has a link for this specific event
     existing = db.query(Referral).filter(
-        Referral.member_email == request.member_email,
+        Referral.member_email == hashed_email,
         Referral.event_path == clean_path
     ).first()
 
     if existing:
         response.status_code = status.HTTP_200_OK
-        tracking_url = f"{DOMAIN_URL}/ref/{existing.referral_code}"
-        
-        # Construct the final Bevy URL with UTM parameters
-        if existing.event_path.startswith("http"):
-            bevy_base = existing.event_path
-        else:
-            bevy_base = f"{BASE_BEVY_URL}/{existing.event_path}"
-        
-        separator = "&" if "?" in bevy_base else "?"
-        referral_url = f"{bevy_base}{separator}utm_source=referral&utm_medium=member&utm_campaign={existing.referral_code}"
-        
         return {
-            "referral_url": referral_url, 
+            "referral_url": build_referral_url(existing.event_path, existing.referral_code),
             "referral_code": existing.referral_code,
-            "tracking_url": tracking_url
+            "tracking_url": f"{DOMAIN_URL}/ref/{existing.referral_code}"
         }
 
-    # 2. Generate a new unique code (checking for collisions in the DB)
+    # Generate a new unique code (with collision check)
     while True:
         code = generate_unique_code()
-        collision = db.query(Referral).filter(Referral.referral_code == code).first()
-        if not collision:
+        if not db.query(Referral).filter(Referral.referral_code == code).first():
             break
 
     new_referral = Referral(
-        member_email=request.member_email,
+        member_email=hashed_email,
         event_path=clean_path,
         referral_code=code
     )
@@ -127,85 +131,101 @@ def generate_link(request: GenerateLinkRequest, response: Response, db: Session 
     db.commit()
     db.refresh(new_referral)
 
-    # Construct the tracking (internal) and full (referral) URLs
-    tracking_url = f"{DOMAIN_URL}/ref/{code}"
-    
-    # Construct the final Bevy URL with UTM parameters
-    if clean_path.startswith("http"):
-        bevy_base = clean_path
-    else:
-        bevy_base = f"{BASE_BEVY_URL}/{clean_path}"
-    
-    separator = "&" if "?" in bevy_base else "?"
-    referral_url = f"{bevy_base}{separator}utm_source=referral&utm_medium=member&utm_campaign={code}"
-    
     return {
-        "referral_url": referral_url,
+        "referral_url": build_referral_url(clean_path, code),
         "referral_code": code,
-        "tracking_url": tracking_url
+        "tracking_url": f"{DOMAIN_URL}/ref/{code}"
     }
 
 
 @app.get("/ref/{referral_code}")
-def redirect_to_bevy(
-    referral_code: str, 
-    background_tasks: BackgroundTasks, 
-    db: Session = Depends(get_db)
-):
+def redirect_to_bevy(referral_code: str, db: Session = Depends(get_db)):
     """
     Tracks the click and redirects to the Bevy URL with UTM parameters.
     """
     referral = db.query(Referral).filter(Referral.referral_code == referral_code).first()
-    
     if not referral:
         raise HTTPException(status_code=404, detail="Referral code not found")
 
-    # Log click asynchronously so the redirect is very fast
-    # Note: background_tasks use the same db session so be careful if the session closes.
-    # Safe practice for background writes: open a new session or write directly
-    # To keep this simple and safe, we do it inline here, or could use standard queue.
-    # Doing inline since DB is fast sqlite.
+    # Record click inline (SQLite is fast enough for this use-case)
     record_click(db, referral.id)
 
-    # Construct the final URL
-    if referral.event_path.startswith("http"):
-        url = referral.event_path
-    else:
-        url = f"{BASE_BEVY_URL}/{referral.event_path}"
-    
-    # Append UTM parameters. Use standard URL query param delimiters (?) or (&).
-    separator = "&" if "?" in url else "?"
-    url += f"{separator}utm_source=referral&utm_medium=member&utm_campaign={referral.referral_code}"
-
-    # 302 Found (Standard Temporary Redirect)
+    url = build_referral_url(referral.event_path, referral.referral_code)
     return RedirectResponse(url=url, status_code=302)
 
 
 @app.get("/stats/{referral_code}")
-def get_stats(referral_code: str, db: Session = Depends(get_db)):
+def get_stats(
+    referral_code: str, 
+    start_date: Optional[str] = None, 
+    end_date: Optional[str] = None, 
+    all_time: bool = False,
+    db: Session = Depends(get_db)
+):
     """
-    Returns basic click stats for a specific referral link.
+    Returns click stats for a specific referral link.
+    Defaults to current month unless dates or all_time=True are provided.
     """
     referral = db.query(Referral).filter(Referral.referral_code == referral_code).first()
     if not referral:
         raise HTTPException(status_code=404, detail="Referral code not found")
 
-    clicks_count = db.query(Click).filter(Click.referral_id == referral.id).count()
+    query = db.query(Click).filter(Click.referral_id == referral.id)
+
+    if not all_time:
+        if start_date or end_date:
+            if start_date:
+                query = query.filter(Click.clicked_at >= datetime.fromisoformat(start_date))
+            if end_date:
+                query = query.filter(Click.clicked_at <= datetime.fromisoformat(end_date))
+        else:
+            # Default to current month
+            now = datetime.utcnow()
+            query = query.filter(
+                func.extract('month', Click.clicked_at) == now.month,
+                func.extract('year', Click.clicked_at) == now.year
+            )
+
+    clicks_count = query.count()
+
     return {
         "referral_code": referral_code,
-        "member_email": referral.member_email,
+        "member_email": "******** (Hidden for Security)",
         "event_path": referral.event_path,
-        "total_clicks": clicks_count
+        "total_clicks": clicks_count,
+        "filter": "all_time" if all_time else "custom" if (start_date or end_date) else "current_month"
     }
 
 @app.get("/leaderboard")
-def get_leaderboard(db: Session = Depends(get_db)):
+def get_leaderboard(
+    start_date: Optional[str] = None, 
+    end_date: Optional[str] = None, 
+    all_time: bool = False,
+    db: Session = Depends(get_db)
+):
     """
-    Returns a leaderboard of top 10 referrers based on total clicks.
+    Returns a leaderboard of top 10 referrers.
+    Defaults to current month unless dates or all_time=True are provided.
     """
+    now = datetime.utcnow()
+    
+    # Base join condition
+    join_cond = (Referral.id == Click.referral_id)
+    
+    if not all_time:
+        if start_date or end_date:
+            if start_date:
+                join_cond &= (Click.clicked_at >= datetime.fromisoformat(start_date))
+            if end_date:
+                join_cond &= (Click.clicked_at <= datetime.fromisoformat(end_date))
+        else:
+            # Default to current month
+            join_cond &= (func.extract('month', Click.clicked_at) == now.month)
+            join_cond &= (func.extract('year', Click.clicked_at) == now.year)
+
     results = (
         db.query(Referral.referral_code, func.count(Click.id).label("total_clicks"))
-        .outerjoin(Click, Referral.id == Click.referral_id)
+        .outerjoin(Click, join_cond)
         .group_by(Referral.referral_code)
         .order_by(func.count(Click.id).desc())
         .limit(10)

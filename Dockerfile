@@ -6,8 +6,13 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy everything else
+# Copy application code
 COPY main.py .
+COPY frontend.py .
+
+# Run as non-root user
+RUN useradd --create-home appuser
+USER appuser
 
 EXPOSE 8000
 

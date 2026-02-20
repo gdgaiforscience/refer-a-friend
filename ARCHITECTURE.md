@@ -28,5 +28,10 @@ The architecture consists of a single, lightweight backend service built using *
    - The server performs a database lookup for the `<referral_code>`.
    - It asynchronously logs a "click" event in the database for tracking metrics.
    - It constructs the final destination URL by taking the original Bevy event URL and appending tracking parameters:
-     `?utm_source=referral&utm_medium=member&utm_campaign=<member_email>`
+     `?utm_source=referral&utm_medium=member&utm_campaign=<referral_code>`
    - Finally, the server issues an HTTP `302 Found` redirect, sending the user to the Bevy site where they complete registration. Bevy's analytics will naturally pick up the UTM tags to recognize the referral source.
+
+## Security & Privacy
+- **Email Hashing:** Member emails are never stored in plain text. They are salted and hashed (SHA-256) before being saved to the database. This prevents email leakage even if the database is compromised.
+- **Referral Codes:** High-entropy alphanumeric codes are used for tracking instead of personally identifiable information.
+- **UTM Privacy:** UTM parameters only contain the anonymous referral code, not the member's email.

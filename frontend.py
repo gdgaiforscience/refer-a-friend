@@ -1,9 +1,23 @@
 import streamlit as st
 import requests
 import os
+import datetime
+import calendar
 
 # Configuration
 API_URL = os.getenv("API_URL", "http://127.0.0.1:8000")
+
+def get_time_until_end_of_month():
+    now = datetime.datetime.now()
+    last_day = calendar.monthrange(now.year, now.month)[1]
+    end_of_month = datetime.datetime(now.year, now.month, last_day, 23, 59, 59)
+    delta = end_of_month - now
+    
+    days = delta.days
+    hours, remainder = divmod(delta.seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    
+    return f"{days}d {hours}h {minutes}m"
 
 st.set_page_config(
     page_title="GDG Referral Tracker",
@@ -16,13 +30,13 @@ st.markdown("1. Generate your referral link.")
 st.markdown("2. Share it with your friends and colleagues.")
 st.markdown("3. Get swag!")
 
-tab1, tab2, tab3 = st.tabs(["Generate Link", "View Stats", "Leaderboard"])
+tab1, tab2 = st.tabs(["Generate Link", "Leaderboard"])
 
 # --- Tab 1: Generate Link ---
 with tab1:
     st.header("Generate a New Link")
     with st.form("generate_form"):
-        member_email = st.text_input("Email Address (used only for contacting about swag and keeping links unique to you)", placeholder="jane.doe@example.com")
+        member_email = st.text_input("Email Address (used only to keep links unique to you - we do not store this in plain text for your privacy)", placeholder="jane.doe@example.com")
         
         events = {
             "The Adversarial Misuse of AI": "https://gdg.community.dev/events/details/google-gdg-ai-for-science-australia-presents-the-adversarial-misuse-of-ai-and-how-to-defend-against-it/",
@@ -45,98 +59,67 @@ with tab1:
                         f"{API_URL}/generate",
                         json={"member_email": member_email, "event_path": event_path}
                     )
-                    if response.status_code == 201:
+                    if response.status_code in (200, 201):
                         data = response.json()
-                        st.success("Link generated successfully!")
-                        
-                        st.write("### Your Shareable Links:")
-                        
-                        # st.info("💡 **Which one should I share?**")
-                        # st.markdown("""
-                        # - **Tracking Link (Recommended):** Use this to appear on the **Leaderboard** and track your click count! It will redirect visitors to the event page.
-                        # - **Direct Link:** A direct link to the Bevy event with your UTM parameters. *Note: Clicks on this link are NOT tracked in our local leaderboard.*
-                        # """)
+                        banner = "Link generated successfully!" if response.status_code == 201 else "Found your existing code!"
+                        st.success(banner)
 
-                        st.write("**Your referral link to share:**")
+                        st.write("### Your referral link to share:")
                         st.code(data["tracking_url"], language="text")
-
-                        # col1, col2 = st.columns(2)
-                        # with col1:
-                        #     st.write("**Tracking Link (Share this!)**")
-                        #     st.code(data["tracking_url"], language="text")
-                        # with col2:
-                        #     st.write("**Direct Link**")
-                        #     st.code(data["referral_url"], language="text")
-                        
                         st.info(f"Referral Code: **{data['referral_code']}** (Save this to check your stats later!)")
-                    elif response.status_code == 200:
-                        data = response.json()
-                        st.info("Found your exisitng code!")
-                        
-                        st.write("### Your Shareable Links:")
-                        
-                        st.write("**Your referral link to share:**")
-                        st.code(data["tracking_url"], language="text")
-                        # col1, col2 = st.columns(2)
-                        # with col1:
-                        #     st.write("**Tracking Link (Share this!)**")
-                        #     st.code(data["tracking_url"], language="text")
-                        # with col2:
-                        #     st.write("**Direct Link**")
-                        #     st.code(data["referral_url"], language="text")
-                        
-                        st.info(f"Referral Code: **{data['referral_code']}**")
                     else:
                         st.error(f"Error: {response.text}")
                 except Exception as e:
                     st.error(f"Failed to connect to the backend API: {e}")
 
-# --- Tab 2: View Stats ---
+
+# --- Tab 2: Leaderboard ---
 with tab2:
-    st.header("Check Link Performance")
-    with st.form("stats_form"):
-        referral_code = st.text_input("Enter your Referral Code", placeholder="aB3h9K")
-        
-        checked = st.form_submit_button("Get Stats")
-        
-        if checked:
-            if not referral_code:
-                st.error("Please enter a referral code.")
-            else:
-                try:
-                    response = requests.get(f"{API_URL}/stats/{referral_code}")
-                    if response.status_code == 200:
-                        data = response.json()
-                        
-                        st.write(f"### Stats for `{referral_code}`")
-                        
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            st.metric("Total Clicks", data["total_clicks"])
-                        with col2:
-                            st.write("**Referrer:**", data["member_email"])
-                            
-                        st.write("**Target Event:**", data["event_path"])
-                        
-                    elif response.status_code == 404:
-                        st.warning("Referral code not found.")
-                    else:
-                        st.error(f"Error: {response.text}")
-                except Exception as e:
-                    st.error(f"Failed to connect to the backend API: {e}")
-
-# --- Tab 3: Leaderboard ---
-with tab3:
     st.header("Top Referrers Leaderboard")
-    st.markdown("See who has referred the most clicks across all events!")
     
+    # Simple Admin Toggle
+    admin_mode = st.toggle("Admin - View All Time Stats", value=False)
+    
+    if not admin_mode:
+        # Show countdown for normal view
+        countdown = get_time_until_end_of_month()
+        st.info(f"⏱️ **Time remaining this month:** {countdown}")
+        st.markdown("See who has referred the most clicks **this month** across all events!")
+        api_params = {"all_time": "false"}
+    else:
+        st.warning("📊 **Admin Mode:** Showing all-time stats.")
+        api_params = {"all_time": "true"}
+    
+    if admin_mode:
+        st.divider()
+        st.subheader("Admin: Check Specific Referral Code")
+        with st.form("admin_check"):
+            target_code = st.text_input("Enter Referral Code", placeholder="aB3h9K")
+            check_all_time = st.checkbox("All Time Stats", value=True)
+            check_submitted = st.form_submit_button("Fetch Stats")
+            
+            if check_submitted and target_code:
+                try:
+                    params = {"all_time": "true" if check_all_time else "false"}
+                    res = requests.get(f"{API_URL}/stats/{target_code}", params=params)
+                    if res.status_code == 200:
+                        stats = res.json()
+                        c1, c2 = st.columns(2)
+                        c1.metric("Total Clicks", stats["total_clicks"])
+                        c2.info(f"Event: {stats['event_path']}")
+                    else:
+                        st.error(f"Code not found: {res.text}")
+                except Exception as e:
+                    st.error(f"Error: {e}")
+        st.divider()
+
     col1, col2 = st.columns([0.8, 0.2])
     with col2:
         if st.button("Refresh 🔄"):
             pass # Just clicking the button triggers a Streamlit script re-run
             
     try:
-        response = requests.get(f"{API_URL}/leaderboard")
+        response = requests.get(f"{API_URL}/leaderboard", params=api_params)
         if response.status_code == 200:
             data = response.json()
             if data:

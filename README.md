@@ -72,10 +72,13 @@ Fly.io offers a free tier with persistent volumes for SQLite.
 
 1. Install Flyctl: `curl -L https://fly.io/install.sh | sh`
 2. Login: `fly auth login`
-3. Create volume: `fly volumes create data_vol --region syd --size 1`
+3. Prepare: `fly launch --no-deploy`
+3. Create volume: `fly volumes create data --region syd --size 1`
 4. Set secrets:
    ```bash
    fly secrets set SECRET_KEY="your-secret-key-here"
+   fly secrets set DOMAIN_URL="https://gdg-refer.fly.dev"
+   fly secrets set DATABASE_URL="sqlite:////data/gdg_referrals.db"
    ```
 5. Deploy: `fly deploy`
 

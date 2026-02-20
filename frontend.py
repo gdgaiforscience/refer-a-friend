@@ -25,10 +25,18 @@ st.set_page_config(
     layout="centered"
 )
 
+
 st.title("GDG AI for Science - Refer a friend!")
-st.markdown("1. Generate your referral link.")
-st.markdown("2. Share it with your friends and colleagues.")
-st.markdown("3. Get swag!")
+col1, col2 = st.columns([3, 1])
+with col1:
+    st.markdown("1. Generate your referral link.")
+    st.markdown("2. Share it with your friends and colleagues.")
+    st.markdown("3. Get swag!")
+    st.markdown("Share it on LinkedIn, put it in your School Newsletter, or print it out and give it to your Mum!")
+
+with col2:
+    st.image("Beaker_Icon.png", use_container_width=True)
+
 
 tab1, tab2 = st.tabs(["Generate Link", "Leaderboard"])
 
@@ -36,7 +44,7 @@ tab1, tab2 = st.tabs(["Generate Link", "Leaderboard"])
 with tab1:
     st.header("Generate a New Link")
     with st.form("generate_form"):
-        member_email = st.text_input("Email Address (used only to keep links unique to you - we do not store this in plain text for your privacy)", placeholder="jane.doe@example.com")
+        member_email = st.text_input("Email Address (used only to keep links unique to you and to contact you about swag)", placeholder="jane.doe@org.com")
         
         events = {
             "The Adversarial Misuse of AI": "https://gdg.community.dev/events/details/google-gdg-ai-for-science-australia-presents-the-adversarial-misuse-of-ai-and-how-to-defend-against-it/",
@@ -75,48 +83,15 @@ with tab1:
 
 # --- Tab 2: Leaderboard ---
 with tab2:
-    st.header("Top Referrers Leaderboard")
+    st.header("Top AI for Science Referrers Leaderboard")
     
-    # Simple Admin Toggle
-    admin_mode = st.toggle("Admin - View All Time Stats", value=False)
-    
-    if not admin_mode:
-        # Show countdown for normal view
-        countdown = get_time_until_end_of_month()
-        st.info(f"⏱️ **Time remaining this month:** {countdown}")
-        st.markdown("See who has referred the most clicks **this month** across all events!")
-        api_params = {"all_time": "false"}
-    else:
-        st.warning("📊 **Admin Mode:** Showing all-time stats.")
-        api_params = {"all_time": "true"}
-    
-    if admin_mode:
-        st.divider()
-        st.subheader("Admin: Check Specific Referral Code")
-        with st.form("admin_check"):
-            target_code = st.text_input("Enter Referral Code", placeholder="aB3h9K")
-            check_all_time = st.checkbox("All Time Stats", value=True)
-            check_submitted = st.form_submit_button("Fetch Stats")
-            
-            if check_submitted and target_code:
-                try:
-                    params = {"all_time": "true" if check_all_time else "false"}
-                    res = requests.get(f"{API_URL}/stats/{target_code}", params=params)
-                    if res.status_code == 200:
-                        stats = res.json()
-                        c1, c2 = st.columns(2)
-                        c1.metric("Total Clicks", stats["total_clicks"])
-                        c2.info(f"Event: {stats['event_path']}")
-                    else:
-                        st.error(f"Code not found: {res.text}")
-                except Exception as e:
-                    st.error(f"Error: {e}")
-        st.divider()
+    # Show countdown for normal view
+    countdown = get_time_until_end_of_month()
+    st.info(f"⏱️ **Time remaining this month:** {countdown}")
+    st.markdown("See who has referred the most people across all events!")
+    st.markdown("Top event-based referrers will be contacted to receive swag!")
+    api_params = {"all_time": "false"}
 
-    col1, col2 = st.columns([0.8, 0.2])
-    with col2:
-        if st.button("Refresh 🔄"):
-            pass # Just clicking the button triggers a Streamlit script re-run
             
     try:
         response = requests.get(f"{API_URL}/leaderboard", params=api_params)

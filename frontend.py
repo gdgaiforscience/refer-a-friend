@@ -5,7 +5,7 @@ import datetime
 import calendar
 
 # Configuration
-API_URL = os.getenv("API_URL", "http://127.0.0.1:8000")
+API_URL = os.getenv("DOMAIN_URL", "http://127.0.0.1:8000")
 
 def get_time_until_end_of_month():
     now = datetime.datetime.now()

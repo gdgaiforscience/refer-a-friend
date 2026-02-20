@@ -24,8 +24,7 @@ Edit `.env` and set:
 
 | Variable | Description |
 |----------|-------------|
-| `BASE_BEVY_URL` | Root of your GDG community site (e.g. `https://gdg.community.dev`) |
-| `DOMAIN_URL` | Where *this* service is hosted (e.g. `http://localhost:8000`) |
+| `DOMAIN_URL` | Where *this* API backend service is hosted (e.g. `http://localhost:8000`) |
 | `DATABASE_URL` | SQLite path (default: `sqlite:///./gdg_referrals.db`) |
 | `SECRET_KEY` | **Required.** Salt for hashing member emails. Keep secret and persistent! |
 
@@ -35,14 +34,14 @@ Edit `.env` and set:
 pip install -r requirements.txt
 ```
 
-### 3. Run the API
+### 3. Run the backend API
 
 ```bash
 uvicorn main:app --reload
 ```
 
 The API starts at `http://127.0.0.1:8000`.
-Interactive Swagger docs are at `http://127.0.0.1:8000/docs`.
+Interactive Swagger docs to see API capabilities: `http://127.0.0.1:8000/docs`.
 
 ### 4. Run the Frontend
 
@@ -51,49 +50,6 @@ In a separate terminal:
 ```bash
 streamlit run frontend.py
 ```
-
-## API Reference
-
-### `POST /generate` — Create a referral link
-
-**Request:**
-```json
-{
-  "member_email": "jane.doe@example.com",
-  "event_path": "https://gdg.community.dev/events/details/my-event/"
-}
-```
-
-**Response (201 Created / 200 OK if already exists):**
-```json
-{
-  "referral_url": "https://gdg.community.dev/events/details/my-event/?utm_source=referral&utm_medium=member&utm_campaign=aB3h9K",
-  "referral_code": "aB3h9K",
-  "tracking_url": "http://127.0.0.1:8000/ref/aB3h9K"
-}
-```
-
-Share the `tracking_url` — it tracks the click and then redirects to `referral_url`.
-
-### `GET /ref/{referral_code}` — Click & redirect
-
-1. Logs the click in the database.
-2. 302 redirects to the Bevy event URL with UTM parameters.
-
-### `GET /stats/{referral_code}` — View click count
-
-```json
-{
-  "referral_code": "aB3h9K",
-  "member_email": "******** (Hidden for Security)",
-  "event_path": "https://gdg.community.dev/events/details/my-event/",
-  "total_clicks": 42
-}
-```
-
-### `GET /leaderboard` — Top 10 referrers
-
-Returns the top 10 referral codes ranked by total clicks.
 
 ## Security & Privacy
 
@@ -121,7 +77,6 @@ Fly.io offers a free tier with persistent volumes for SQLite.
    ```bash
    fly secrets set SECRET_KEY="your-secret-key-here"
    fly secrets set DOMAIN_URL="https://gdg-refer.fly.dev"
-   fly secrets set BASE_BEVY_URL="https://gdg.community.dev"
    ```
 5. Deploy: `fly deploy`
 

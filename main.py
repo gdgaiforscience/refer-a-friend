@@ -15,8 +15,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # --- Config ---
-BASE_BEVY_URL = os.getenv("BASE_BEVY_URL") or "https://gdg.community.dev"
-BASE_BEVY_URL = BASE_BEVY_URL.rstrip("/")
 DOMAIN_URL = (os.getenv("DOMAIN_URL") or "http://127.0.0.1:8000").rstrip("/")
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./gdg_referrals.db")
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -82,9 +80,8 @@ def hash_email(email: str) -> str:
 
 def build_referral_url(event_path: str, referral_code: str) -> str:
     """Constructs the full Bevy URL with UTM parameters."""
-    base = event_path if event_path.startswith("http") else f"{BASE_BEVY_URL}/{event_path}"
-    sep = "&" if "?" in base else "?"
-    return f"{base}{sep}utm_source=referral&utm_medium=member&utm_campaign={referral_code}"
+    sep = "&" if "?" in event_path else "?"
+    return f"{event_path}{sep}utm_source=referral&utm_medium=member&utm_campaign={referral_code}"
 
 def record_click(db: Session, referral_id: int):
     """Records a click event for a referral."""

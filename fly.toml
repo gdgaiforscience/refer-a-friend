@@ -10,7 +10,10 @@ primary_region = "syd" # Feel free to change this to an AWS region closer to you
   dockerfile = "Dockerfile"
 
 [env]
-  # We read this from the mounted volume so it survives restarts
+  # Public URL for this app — derived from the app name above.
+  # Update if you use a custom domain.
+  DOMAIN_URL = "https://gdg-refer.fly.dev"
+  # We read the DB from the mounted volume so it survives restarts
   DATABASE_URL = "sqlite:////data/gdg_referrals.db"
 
 [mounts]

@@ -76,11 +76,13 @@ Fly.io offers a free tier with persistent volumes for SQLite.
 4. Set secrets:
    ```bash
    fly secrets set SECRET_KEY="your-secret-key-here"
-   fly secrets set DOMAIN_URL="https://gdg-refer.fly.dev"
    ```
 5. Deploy: `fly deploy`
 
-The API will be live at `https://gdg-refer.fly.dev` (or whichever name Fly assigns).
+The API will be live at `https://gdg-refer.fly.dev`.
+
+> [!TIP]
+> `DOMAIN_URL` is set automatically in `fly.toml` based on the app name. If you change the app name or add a custom domain, update the `DOMAIN_URL` value in `fly.toml` to match.
 
 ### Option B: Render (Backend — Free Tier)
 
@@ -92,7 +94,7 @@ The API will be live at `https://gdg-refer.fly.dev` (or whichever name Fly assig
    - **Build command:** `pip install -r requirements.txt`
    - **Start command:** `uvicorn main:app --host 0.0.0.0 --port $PORT`
 4. Add environment variables under **Environment**:
-   - `SECRET_KEY`, `DOMAIN_URL`, `BASE_BEVY_URL`, `DATABASE_URL`
+   - `SECRET_KEY`, `DOMAIN_URL`, `DATABASE_URL`
 5. *(Optional)* Add a **Disk** (mount path `/data`, 1 GB) and set `DATABASE_URL=sqlite:////data/gdg_referrals.db` for persistence across deploys.
 
 > [!NOTE]

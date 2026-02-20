@@ -1,4 +1,4 @@
-FROM python:3.9-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
@@ -17,4 +17,4 @@ USER appuser
 EXPOSE 8000
 
 # Start FastAPI server
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "main:app"]

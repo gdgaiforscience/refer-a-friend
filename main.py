@@ -15,7 +15,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # --- Config ---
-DOMAIN_URL = (os.getenv("DOMAIN_URL") or "http://127.0.0.1:8000").rstrip("/")
+# PUBLIC_URL is the external URL users see in tracking links (e.g. https://gdg-refer.fly.dev)
+# DOMAIN_URL is for internal frontend-to-backend communication (e.g. http://localhost:8000)
+PUBLIC_URL = (os.getenv("PUBLIC_URL") or os.getenv("DOMAIN_URL") or "http://127.0.0.1:8000").rstrip("/")
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./gdg_referrals.db")
 SECRET_KEY = os.getenv("SECRET_KEY")
 if not SECRET_KEY:
@@ -110,7 +112,7 @@ def generate_link(request: GenerateLinkRequest, response: Response, db: Session 
         return {
             "referral_url": build_referral_url(existing.event_path, existing.referral_code),
             "referral_code": existing.referral_code,
-            "tracking_url": f"{DOMAIN_URL}/ref/{existing.referral_code}"
+            "tracking_url": f"{PUBLIC_URL}/ref/{existing.referral_code}"
         }
 
     # Generate a new unique code (with collision check)
@@ -131,7 +133,7 @@ def generate_link(request: GenerateLinkRequest, response: Response, db: Session 
     return {
         "referral_url": build_referral_url(clean_path, code),
         "referral_code": code,
-        "tracking_url": f"{DOMAIN_URL}/ref/{code}"
+        "tracking_url": f"{PUBLIC_URL}/ref/{code}"
     }
 
 

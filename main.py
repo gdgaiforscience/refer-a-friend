@@ -18,7 +18,7 @@ load_dotenv()
 # PUBLIC_URL is the external URL users see in tracking links (e.g. https://gdg-refer.fly.dev)
 # DOMAIN_URL is for internal frontend-to-backend communication (e.g. http://localhost:8000)
 PUBLIC_URL = (os.getenv("PUBLIC_URL") or os.getenv("DOMAIN_URL") or "http://127.0.0.1:8000").rstrip("/")
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./gdg_referrals.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:////data/gdg_referrals.db")
 SECRET_KEY = os.getenv("SECRET_KEY")
 if not SECRET_KEY:
     raise RuntimeError(
@@ -27,7 +27,8 @@ if not SECRET_KEY:
     )
 
 # --- Database Setup ---
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+engine = create_engine(DATABASE_URL, connect_args=connect_args)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 

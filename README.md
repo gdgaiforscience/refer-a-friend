@@ -78,12 +78,15 @@ Fly.io offers a free tier with persistent volumes for SQLite.
 4. Set secrets:
    ```bash
    fly secrets set SECRET_KEY="your-secret-key-here"
-   fly secrets set DOMAIN_URL="https://gdg-refer.fly.dev"
+   fly secrets set PUBLIC_URL="https://gdg-refer.fly.dev"
    fly secrets set DATABASE_URL="sqlite:////data/gdg_referrals.db"
    ```
 5. Deploy: `fly deploy`
 
 The Frontend will be live at `https://gdg-refer.fly.dev` (and the API).
+
+> [!TIP]
+> Destroy the app and everything with `fly apps destroy gdg-refer`.
 
 > [!TIP]
 > `DOMAIN_URL` is set automatically in `fly.toml` based on the app name. If you change the app name or add a custom domain, update the `DOMAIN_URL` value in `fly.toml` to match.

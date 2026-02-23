@@ -27,7 +27,6 @@ if not SECRET_KEY:
         "Set it in your .env file or via 'fly secrets set SECRET_KEY=...'."
     )
 
-print(SECRET_KEY.encode('utf-8'))
 cipher_suite = Fernet(SECRET_KEY.encode('utf-8'))
 
 # --- Database Setup ---

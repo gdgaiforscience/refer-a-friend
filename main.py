@@ -11,6 +11,7 @@ from sqlalchemy import create_engine, Column, Integer, String, DateTime, Foreign
 from sqlalchemy.orm import sessionmaker, Session, declarative_base
 from pydantic import BaseModel
 from dotenv import load_dotenv
+from cryptography.fernet import Fernet
 
 load_dotenv()
 
@@ -25,6 +26,9 @@ if not SECRET_KEY:
         "SECRET_KEY environment variable is required. "
         "Set it in your .env file or via 'fly secrets set SECRET_KEY=...'."
     )
+
+print(SECRET_KEY.encode('utf-8'))
+cipher_suite = Fernet(SECRET_KEY.encode('utf-8'))
 
 # --- Database Setup ---
 connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
@@ -45,10 +49,11 @@ Base = declarative_base()
 
 class Referral(Base):
     __tablename__ = "referrals"
-    __table_args__ = (UniqueConstraint('member_email', 'event_path', name='_member_event_uc'),)
+    __table_args__ = (UniqueConstraint('email_hash', 'event_path', name='_member_event_uc'),)
 
     id = Column(Integer, primary_key=True, index=True)
-    member_email = Column(String, index=True, nullable=False)
+    email_hash = Column(String, index=True, nullable=False)      # Used for searching/uniqueness
+    encrypted_email = Column(String, nullable=False)             # Used for admin recovery
     event_path = Column(String, nullable=False)
     referral_code = Column(String, unique=True, index=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -88,9 +93,18 @@ def generate_unique_code(length: int = 6) -> str:
     return ''.join(secrets.choice(chars) for _ in range(length))
 
 def hash_email(email: str) -> str:
-    """Returns a salted SHA256 hash of the email."""
+    """Returns a salted SHA256 hash of the email for blind indexing."""
     normalized_email = email.lower().strip()
     return hashlib.sha256((normalized_email + SECRET_KEY).encode()).hexdigest()
+
+def encrypt_email(email: str) -> str:
+    """Encrypts the email using Fernet symmetric encryption."""
+    normalized_email = email.lower().strip()
+    return cipher_suite.encrypt(normalized_email.encode()).decode('utf-8')
+
+def decrypt_email(encrypted_email: str) -> str:
+    """Decrypts the email back to plain text."""
+    return cipher_suite.decrypt(encrypted_email.encode('utf-8')).decode('utf-8')
 
 def build_referral_url(event_path: str, referral_code: str) -> str:
     """Constructs the full Bevy URL with UTM parameters."""
@@ -107,15 +121,12 @@ def record_click(db: Session, referral_id: int):
 
 @app.post("/generate", response_model=GenerateLinkResponse, status_code=status.HTTP_201_CREATED)
 def generate_link(request: GenerateLinkRequest, response: Response, db: Session = Depends(get_db)):
-    """
-    Generates a unique referral link for a member and specific event.
-    If a link already exists for this email and event, returns the existing one.
-    """
     clean_path = request.event_path.lstrip("/")
     hashed_email = hash_email(request.member_email)
 
+    # Search using the blind index (the hash)
     existing = db.query(Referral).filter(
-        Referral.member_email == hashed_email,
+        Referral.email_hash == hashed_email,
         Referral.event_path == clean_path
     ).first()
 
@@ -127,14 +138,18 @@ def generate_link(request: GenerateLinkRequest, response: Response, db: Session 
             "tracking_url": f"{PUBLIC_URL}/ref/{existing.referral_code}"
         }
 
-    # Generate a new unique code (with collision check)
     while True:
         code = generate_unique_code()
         if not db.query(Referral).filter(Referral.referral_code == code).first():
             break
 
+    # Encrypt the email for recovery storage
+    enc_email = encrypt_email(request.member_email)
+
+    # Save both the hash and the encrypted version
     new_referral = Referral(
-        member_email=hashed_email,
+        email_hash=hashed_email,
+        encrypted_email=enc_email,
         event_path=clean_path,
         referral_code=code
     )

@@ -83,7 +83,7 @@ Fly.io offers a free tier with persistent volumes for SQLite.
    ```
 5. Deploy: `fly deploy`
 
-The API will be live at `https://gdg-refer.fly.dev`.
+The Frontend will be live at `https://gdg-refer.fly.dev` (and the API).
 
 > [!TIP]
 > `DOMAIN_URL` is set automatically in `fly.toml` based on the app name. If you change the app name or add a custom domain, update the `DOMAIN_URL` value in `fly.toml` to match.

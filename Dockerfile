@@ -21,4 +21,4 @@ RUN rm -f /etc/nginx/sites-enabled/default
 EXPOSE 8080
 
 # Start nginx, FastAPI, and Streamlit
-CMD sh -c "nginx && uvicorn main:app --host 127.0.0.1 --port 8000 & streamlit run frontend.py --server.port 8501 --server.address 127.0.0.1 --server.headless true"
+CMD sh -c "nginx && uvicorn main:app --host 127.0.0.1 --port 8000 --workers 4 & streamlit run frontend.py --server.port 8501 --server.address 127.0.0.1 --server.headless true"

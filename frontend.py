@@ -35,7 +35,7 @@ with col1:
     st.markdown("Share it on LinkedIn, put it in your School Newsletter, or print it out and give it to your Mum!")
 
 with col2:
-    st.image("Beaker_Icon.png", use_container_width=True)
+    st.image("Beaker_Icon.png", width='stretch')
 
 
 tab1, tab2 = st.tabs(["Generate Link", "Leaderboard"])
@@ -90,22 +90,27 @@ with tab2:
     st.info(f"⏱️ **Time remaining this month:** {countdown}")
     st.markdown("See who has referred the most people across all events!")
     st.markdown("Top event-based referrers will be contacted to receive swag!")
-    api_params = {"all_time": "false"}
+    
+    @st.cache_data(ttl=60)
+    def fetch_leaderboard():
+        api_params = {"all_time": "false"}
+        try:
+            response = requests.get(f"{API_URL}/leaderboard", params=api_params)
+            if response.status_code == 200:
+                return response.json()
+        except Exception:
+            pass
+        return None
 
-            
+    data = fetch_leaderboard()
     try:
-        response = requests.get(f"{API_URL}/leaderboard", params=api_params)
-        if response.status_code == 200:
-            data = response.json()
-            if data:
-                import pandas as pd
-                df = pd.DataFrame(data)
-                df.columns = ["Referral Code", "Total Clicks"]
-                df.index = df.index + 1
-                st.dataframe(df, use_container_width=True)
-            else:
-                st.info("No referral data yet.")
+        if data:
+            import pandas as pd
+            df = pd.DataFrame(data)
+            df.columns = ["Referral Code", "Total Clicks"]
+            df.index = df.index + 1
+            st.dataframe(df, width='stretch')
         else:
-            st.error(f"Error fetching leaderboard: {response.text}")
+            st.info("No referral data yet.")
     except Exception as e:
         st.error(f"Failed to connect to the backend API: {e}")

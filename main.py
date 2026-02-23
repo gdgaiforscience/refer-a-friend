@@ -29,6 +29,17 @@ if not SECRET_KEY:
 # --- Database Setup ---
 connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 engine = create_engine(DATABASE_URL, connect_args=connect_args)
+
+# Enable WAL mode for SQLite to improve concurrency
+from sqlalchemy import event
+@event.listens_for(engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    if DATABASE_URL.startswith("sqlite"):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA synchronous=NORMAL")
+        cursor.close()
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
@@ -46,7 +57,7 @@ class Click(Base):
     __tablename__ = "clicks"
 
     id = Column(Integer, primary_key=True, index=True)
-    referral_id = Column(Integer, ForeignKey("referrals.id"))
+    referral_id = Column(Integer, ForeignKey("referrals.id"), index=True)
     clicked_at = Column(DateTime, default=datetime.utcnow)
 
 Base.metadata.create_all(bind=engine)

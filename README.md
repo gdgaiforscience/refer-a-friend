@@ -24,6 +24,7 @@ Edit `.env` and set:
 
 | Variable | Description |
 |----------|-------------|
+| `PUBLIC_URL` | **Production Only.** The external URL (e.g. `https://gdg-refer.fly.dev`). Used for links shared with users. |
 | `DOMAIN_URL` | Where *this* API backend service is hosted (e.g. `http://localhost:8000`) |
 | `DATABASE_URL` | SQLite path (default: `sqlite:///./gdg_referrals.db`) |
 | `SECRET_KEY` | **Required.** Salt for hashing member emails. Keep secret and persistent! |

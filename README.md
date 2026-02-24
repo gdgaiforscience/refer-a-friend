@@ -120,6 +120,15 @@ The Frontend will be live at `https://gdg-refer.fly.dev` (and the API).
    ```
 5. Deploy — the dashboard will be live at `https://your-app.streamlit.app`.
 
+## Backup the Database
+Execute:
+```
+fly sftp get /data/gdg_referrals.db ./backup/prod_backup.db
+fly sftp get /data/gdg_referrals.db-shm ./backup/prod_backup.db-shm
+fly sftp get /data/gdg_referrals.db-wal ./backup/prod_backup.db-wal
+python utils/decrypt.py --db ./prod_backup.db
+```
+
 ### General Production Guidance
 
 - **`SECRET_KEY`** must be the same across deploys — changing it invalidates all existing email hashes.

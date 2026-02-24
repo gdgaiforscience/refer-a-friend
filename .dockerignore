@@ -1,6 +1,0 @@
-.git
-__pycache__
-*.pyc
-.env
-gdg_referrals.db
-gdg_referrals.db-journal

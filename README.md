@@ -38,11 +38,10 @@ The script auto-creates two tabs on first run:
 
 ### Step 3 — Configure `Code.gs`
 
-At the top of `Code.gs`, set the two required constants:
+At the top of `Code.gs`, set the one required constant:
 
 ```javascript
 var SHEET_ID = "YOUR_GOOGLE_SHEET_ID_HERE";  // from Step 1
-var PUBLIC_URL = "YOUR_WEB_APP_URL_HERE";     // fill in after first deploy (Step 4)
 ```
 
 Optionally update the `EVENTS` map to add or change event names and URLs.
@@ -55,15 +54,7 @@ Optionally update the `EVENTS` map to add or change event names and URLs.
    - **Description**: e.g. `v1`
    - **Execute as**: Me
    - **Who has access**: Anyone
-4. Click **Deploy** and copy the **Web App URL**.
-
-### Step 5 — Set `PUBLIC_URL` and redeploy
-
-1. Paste the Web App URL into `Code.gs` as `PUBLIC_URL`.
-2. Click **Deploy → Manage deployments → Edit (pencil icon)**.
-3. Change the **Version** dropdown to **New version** and click **Deploy**.
-
-Your app is now live at the Web App URL. 🎉
+4. Click **Deploy** — copy the **Web App URL** to share. That's it! 🎉
 
 ---
 
@@ -78,21 +69,6 @@ var EVENTS = {
 };
 ```
 
----
-
-## API reference
-
-All endpoints are on the same Web App URL, distinguished by `?action=`.
-
-| Method | URL | Body / Params | Response |
-|---|---|---|---|
-| `POST` | `?action=generate` | JSON `{ email, event_path }` | `{ referral_url, referral_code, tracking_url, is_new }` |
-| `GET` | `?action=ref&code=XXXX` | — | 302-style meta-refresh redirect |
-| `GET` | `?action=stats&code=XXXX` | — | `{ referral_code, event_path, total_clicks }` |
-| `GET` | `?action=leaderboard` | — | Array of `{ referral_code, total_clicks }` (top 10, current month) |
-| `GET` | *(no action)* | — | Serves `Index.html` |
-
----
 
 ## Privacy
 
@@ -100,11 +76,4 @@ Emails are stored **in plain text** in the Google Sheet, which is owned by and a
 
 ---
 
-## Local development
 
-There is no local dev environment — Apps Script runs entirely in Google's cloud. To iterate:
-
-1. Edit `Code.gs` or `Index.html` in the Apps Script editor.
-2. Click **Deploy → Manage deployments → Edit → New version → Deploy**.
-
-For faster iteration you can use `Logger.log()` statements and **View → Logs** to debug.

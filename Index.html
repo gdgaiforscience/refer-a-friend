@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <base target="_top">
+    <title>GDG AI for Science - Refer a Friend</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .container {
+            background-color: #ffffff;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+
+        p {
+            color: #666;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        input[type="email"],
+        select {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #4285F4;
+            /* Google Blue */
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #357ae8;
+        }
+
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            display: none;
+        }
+
+        #result.success {
+            background-color: #e6f4ea;
+            border: 1px solid #ceead6;
+            color: #137333;
+        }
+
+        #result.error {
+            background-color: #fce8e6;
+            border: 1px solid #f9d2ce;
+            color: #c5221f;
+        }
+
+        #trackerLink {
+            font-weight: bold;
+            margin-top: 10px;
+            word-break: break-all;
+        }
+
+        .loading {
+            display: none;
+            margin-top: 15px;
+            color: #666;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>GDG AI for Science</h1>
+        <p>Enter your email to get your unique referral link. Share it with your friends to track your referrals!</p>
+
+        <form id="referralForm">
+            <select id="eventSelect" required>
+                <option value="" disabled selected>Loading events...</option>
+            </select>
+            <input type="email" id="email" placeholder="Your Email Address" required>
+            <button type="submit" id="submitBtn" disabled>Get My Tracker Link</button>
+        </form>
+
+        <div id="loading" class="loading">Generating link...</div>
+
+        <div id="result">
+            <p id="message"></p>
+            <p id="trackerLink"></p>
+        </div>
+    </div>
+
+    <script>
+        // Load events on page load
+        google.script.run
+            .withSuccessHandler(function (events) {
+                var select = document.getElementById('eventSelect');
+                var submitBtn = document.getElementById('submitBtn');
+
+                select.innerHTML = ''; // Clear loading text
+
+                if (events && events.length > 0) {
+                    events.forEach(function (event) {
+                        var option = document.createElement('option');
+                        option.value = event.name;
+                        option.text = event.name;
+                        select.appendChild(option);
+                    });
+                    submitBtn.disabled = false;
+                } else {
+                    var option = document.createElement('option');
+                    option.value = "";
+                    option.text = "No events available";
+                    option.disabled = true;
+                    select.appendChild(option);
+                }
+            })
+            .withFailureHandler(function (error) {
+                var select = document.getElementById('eventSelect');
+                select.innerHTML = '<option value="" disabled>Error loading events</option>';
+            })
+            .getEvents();
+
+        document.getElementById('referralForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            var email = document.getElementById('email').value;
+            var eventName = document.getElementById('eventSelect').value;
+            var submitBtn = document.getElementById('submitBtn');
+            var resultDiv = document.getElementById('result');
+            var loadingDiv = document.getElementById('loading');
+
+            if (!eventName) {
+                alert("Please select an event.");
+                return;
+            }
+
+            // UI state
+            submitBtn.disabled = true;
+            loadingDiv.style.display = 'block';
+            resultDiv.style.display = 'none';
+
+            // Call Apps Script function
+            google.script.run
+                .withSuccessHandler(function (response) {
+                    submitBtn.disabled = false;
+                    loadingDiv.style.display = 'none';
+                    resultDiv.style.display = 'block';
+
+                    if (response.success) {
+                        resultDiv.className = 'success';
+                        document.getElementById('message').innerText = response.message;
+
+                        // Construct the shareable link based on the current Apps Script web app URL
+                        google.script.run.withSuccessHandler(function (url) {
+                            var fullLink = url + "?ref=" + response.code;
+                            document.getElementById('trackerLink').innerHTML =
+                                '<a href="' + fullLink + '" target="_blank">' + fullLink + '</a>';
+                        }).getScriptUrl();
+
+                    } else {
+                        resultDiv.className = 'error';
+                        document.getElementById('message').innerText = response.error || "An error occurred.";
+                        document.getElementById('trackerLink').innerText = "";
+                    }
+                })
+                .withFailureHandler(function (error) {
+                    submitBtn.disabled = false;
+                    loadingDiv.style.display = 'none';
+                    resultDiv.style.display = 'block';
+                    resultDiv.className = 'error';
+                    document.getElementById('message').innerText = "Failed to connect to server.";
+                    document.getElementById('trackerLink').innerText = "";
+                })
+                .generateReferral(email, eventName);
+        });
+    </script>
+</body>
+
+</html>

@@ -60,7 +60,23 @@ function generateReferralLink(email, website, recaptchaToken) {
     return { success: false, message: "Link generation limit reached for this email address. Try again tomorrow." };
   }
 
-  // 5. Generate Link
+  // 5. Check for Existing Link in Leaderboard
+  try {
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_NAME);
+    const data = sheet.getDataRange().getValues();
+    // Assuming columns are: [Date, Email, Website, BitlyLink, EncodedEmail]
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][1].toLowerCase() === email.toLowerCase() && data[i][2] === website) {
+        console.log("Existing link found for: ", email, website);
+        return { success: true, link: data[i][3] };
+      }
+    }
+  } catch (sheetError) {
+    console.error("Sheet Error (Lookup): ", sheetError);
+    // Continue even if lookup fails, but we'll try to log later
+  }
+
+  // 6. Generate Link
   try {
     const encodedEmail = Utilities.base64EncodeWebSafe(email);
     const apiUrl = "https://api-ssl.bitly.com/v4/bitlinks";
@@ -103,7 +119,7 @@ function generateReferralLink(email, website, recaptchaToken) {
         const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_NAME);
         sheet.appendRow([new Date(), email, website, bitlyLink, encodedEmail]);
       } catch (sheetError) {
-        console.error("Sheet Error: ", sheetError);
+        console.error("Sheet Error (Append): ", sheetError);
         return { success: false, message: "An internal server error occurred while logging. Please notify gdgforscience@gmail.com" };
       }
 

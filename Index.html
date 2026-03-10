@@ -3,208 +3,201 @@
 
 <head>
     <base target="_top">
-    <title>GDG AI for Science - Refer a Friend</title>
+    <!-- Replace placeholder site key with actual site key -->
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+
+
     <style>
+        /* (Keep all your existing CSS styles exactly as they are) */
         body {
             font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #f4f4f4;
+            background-color: #f4f7f6;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
+            margin: 0;
         }
 
         .container {
-            background-color: #ffffff;
-            padding: 40px;
+            background-color: #fff;
+            padding: 30px;
             border-radius: 8px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
             width: 100%;
             max-width: 400px;
-            text-align: center;
+            overflow: hidden;
         }
 
-        h1 {
+        h2 {
+            margin-top: 0;
             color: #333;
-            font-size: 24px;
-            margin-bottom: 20px;
+            font-size: 1.5rem;
         }
 
-        p {
-            color: #666;
-            margin-bottom: 20px;
-            line-height: 1.5;
+        label {
+            display: block;
+            margin-top: 15px;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: bold;
         }
 
         input[type="email"],
         select {
             width: 100%;
-            padding: 12px;
-            margin-bottom: 15px;
+            padding: 10px;
             border: 1px solid #ccc;
             border-radius: 4px;
             box-sizing: border-box;
-            font-size: 16px;
         }
 
         button {
+            margin-top: 20px;
             width: 100%;
             padding: 12px;
-            background-color: #4285F4;
+            background-color: #0056b3;
             color: white;
             border: none;
             border-radius: 4px;
             font-size: 16px;
             cursor: pointer;
-            transition: background-color 0.3s;
         }
 
         button:hover {
-            background-color: #357ae8;
+            background-color: #004494;
         }
 
-        #result {
+        button:disabled {
+            background-color: #999;
+            cursor: not-allowed;
+        }
+
+        #result-area {
             margin-top: 20px;
             padding: 15px;
             border-radius: 4px;
             display: none;
-        }
-
-        #result.success {
-            background-color: #e6f4ea;
-            border: 1px solid #ceead6;
-            color: #137333;
-        }
-
-        #result.error {
-            background-color: #fce8e6;
-            border: 1px solid #f9d2ce;
-            color: #c5221f;
-        }
-
-        #referralLink {
-            font-weight: bold;
-            margin-top: 10px;
             word-break: break-all;
         }
 
-        #referralLink a {
-            color: #1a73e8;
-            text-decoration: none;
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
         }
 
-        #referralLink a:hover {
-            text-decoration: underline;
-        }
-
-        .loading {
-            display: none;
-            margin-top: 15px;
-            color: #666;
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
         }
     </style>
 </head>
 
 <body>
-
     <div class="container">
-        <h1>GDG AI for Science</h1>
-        <p>Enter your email to get your unique referral link. Share it with your friends to track your referrals!</p>
+        <div class="form-content">
+            <h2 id="form-title">Refer-a-Friend</h2>
+            <form id="referralForm" onsubmit="handleFormSubmit(event)">
+                <label for="email">Your Email Address:</label>
+                <input type="email" id="email" required placeholder="you@example.com">
 
-        <form id="referralForm">
-            <select id="eventSelect" required>
-                <option value="" disabled selected>Loading events...</option>
-            </select>
-            <input type="email" id="email" placeholder="Your Email Address" required>
-            <button type="submit" id="submitBtn" disabled>Get My Referral Link</button>
-        </form>
+                <label for="website">Select Site/Event to Share:</label>
+                <select id="website" required>
+                    <option value="" disabled selected>Loading events...</option>
+                </select>
 
-        <div id="loading" class="loading">Generating link...</div>
-
-        <div id="result">
-            <p id="message"></p>
-            <p id="referralLink"></p>
+                <button type="submit" id="submitBtn" disabled>Get My Unique Link</button>
+            </form>
+            <div id="loading" style="display: none; margin-top: 20px; text-align: center;">Generating link...</div>
+            <div id="result-area">
+                <div id="message"></div>
+                <div id="referralLink" style="margin-top: 10px; font-weight: bold;"></div>
+            </div>
         </div>
     </div>
 
     <script>
+        // Replace this with your actual Site Key
+        const RECAPTCHA_SITE_KEY = '6LcqXIYsAAAAAHTs7AKmf-bFd8Z59c1tiJOwE3u6';
+
         // Load events on page load
-        google.script.run
-            .withSuccessHandler(function (events) {
-                var select = document.getElementById('eventSelect');
-                var submitBtn = document.getElementById('submitBtn');
+        (function loadEvents() {
+            google.script.run
+                .withSuccessHandler(function (events) {
+                    const select = document.getElementById('website');
+                    const submitBtn = document.getElementById('submitBtn');
 
-                select.innerHTML = '';
+                    select.innerHTML = '<option value="" disabled selected>Choose an event...</option>';
 
-                if (events && events.length > 0) {
-                    events.forEach(function (event) {
-                        var option = document.createElement('option');
-                        option.value = event.name;
-                        option.text = event.name;
-                        select.appendChild(option);
-                    });
-                    submitBtn.disabled = false;
-                } else {
-                    var option = document.createElement('option');
-                    option.value = "";
-                    option.text = "No events available";
-                    option.disabled = true;
-                    select.appendChild(option);
-                }
-            })
-            .withFailureHandler(function (error) {
-                var select = document.getElementById('eventSelect');
-                select.innerHTML = '<option value="" disabled>Error loading events</option>';
-            })
-            .getEvents();
+                    if (events && events.length > 0) {
+                        events.forEach(function (event) {
+                            const option = document.createElement('option');
+                            option.value = event.url;
+                            option.text = event.name;
+                            select.appendChild(option);
+                        });
+                        submitBtn.disabled = false;
+                    } else {
+                        select.innerHTML = '<option value="" disabled>No events available</option>';
+                    }
+                })
+                .withFailureHandler(function (error) {
+                    const select = document.getElementById('website');
+                    select.innerHTML = '<option value="" disabled>Error loading events</option>';
+                })
+                .getEvents();
+        })();
 
-        document.getElementById('referralForm').addEventListener('submit', function (e) {
-            e.preventDefault();
+        function handleFormSubmit(event) {
+            event.preventDefault();
 
-            var email = document.getElementById('email').value;
-            var eventName = document.getElementById('eventSelect').value;
-            var submitBtn = document.getElementById('submitBtn');
-            var resultDiv = document.getElementById('result');
-            var loadingDiv = document.getElementById('loading');
+            const email = document.getElementById('email').value;
+            const website = document.getElementById('website').value;
+            const submitBtn = document.getElementById('submitBtn');
+            const resultArea = document.getElementById('result-area');
+            const loadingDiv = document.getElementById('loading');
+            const messageDiv = document.getElementById('message');
+            const linkDiv = document.getElementById('referralLink');
 
-            if (!eventName) {
+            if (!website) {
                 alert("Please select an event.");
                 return;
             }
 
             submitBtn.disabled = true;
             loadingDiv.style.display = 'block';
-            resultDiv.style.display = 'none';
+            resultArea.style.display = 'none';
+            messageDiv.className = '';
+            messageDiv.innerText = '';
+            linkDiv.innerHTML = '';
 
+            // Note: recaptchaToken is passed as null for now as per instructions
             google.script.run
                 .withSuccessHandler(function (response) {
                     submitBtn.disabled = false;
                     loadingDiv.style.display = 'none';
-                    resultDiv.style.display = 'block';
+                    resultArea.style.display = 'block';
 
                     if (response.success) {
-                        resultDiv.className = 'success';
-                        document.getElementById('message').innerText = response.message;
-                        document.getElementById('referralLink').innerHTML =
-                            '<a href="' + response.link + '" target="_blank">' + response.link + '</a>';
+                        resultArea.className = 'success';
+                        messageDiv.innerText = "Success! Here is your unique referral link:";
+                        linkDiv.innerHTML = '<a href="' + response.link + '" target="_blank">' + response.link + '</a>';
                     } else {
-                        resultDiv.className = 'error';
-                        document.getElementById('message').innerText = response.error || "An error occurred.";
-                        document.getElementById('referralLink').innerText = "";
+                        resultArea.className = 'error';
+                        messageDiv.innerText = response.message || "An error occurred.";
                     }
                 })
                 .withFailureHandler(function (error) {
                     submitBtn.disabled = false;
                     loadingDiv.style.display = 'none';
-                    resultDiv.style.display = 'block';
-                    resultDiv.className = 'error';
-                    document.getElementById('message').innerText = "Failed to connect to server.";
-                    document.getElementById('referralLink').innerText = "";
+                    resultArea.style.display = 'block';
+                    resultArea.className = 'error';
+                    messageDiv.innerText = "Fatal Error: Failed to connect to server.";
                 })
-                .generateReferral(email, eventName);
-        });
+                .generateReferralLink(email, website, null);
+        }
     </script>
 </body>
 

@@ -15,8 +15,8 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
             margin: 0;
+            padding: 20px;
         }
 
         .container {
@@ -26,6 +26,7 @@
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
             width: 100%;
             max-width: 400px;
+            max-height: 400px;
             overflow: hidden;
         }
 
@@ -98,7 +99,7 @@
 <body>
     <div class="container">
         <div class="form-content">
-            <h2 id="form-title">GDGRefer-a-Friend</h2>
+            <h2 id="form-title">GDG Refer-a-Friend</h2>
             <form id="referralForm" onsubmit="handleFormSubmit(event)">
                 <label for="email">Your Email Address:</label>
                 <input type="email" id="email" required placeholder="you@example.com">

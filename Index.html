@@ -1,14 +1,12 @@
 <!DOCTYPE html>
+<!-- Main entry point for the GDG Refer-a-Friend application -->
 <html>
 
 <head>
     <base target="_top">
-    <!-- Replace placeholder site key with actual site key -->
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
-
-
+    <!-- Basic styling for the application -->
     <style>
-        /* (Keep all your existing CSS styles exactly as they are) */
         body {
             font-family: Arial, sans-serif;
             background-color: #f4f7f6;
@@ -100,6 +98,7 @@
     <div class="container">
         <div class="form-content">
             <h2 id="form-title">GDG Refer-a-Friend</h2>
+            <!-- Main referral form -->
             <form id="referralForm" onsubmit="handleFormSubmit(event)">
                 <label for="email">Your Email Address:</label>
                 <input type="email" id="email" required placeholder="you@example.com">
@@ -116,6 +115,7 @@
                 <button type="submit" id="submitBtn" disabled>Get My Unique Link</button>
             </form>
             <div id="loading" style="display: none; margin-top: 20px; text-align: center;">Generating link...</div>
+            <!-- Area to display success or error messages -->
             <div id="result-area">
                 <div id="message"></div>
                 <div id="referralLink" style="margin-top: 10px; font-weight: bold;"></div>
@@ -124,7 +124,8 @@
     </div>
 
     <script>
-        // Replace this with your actual Site Key
+        // Configuration and initialization
+        // Site Key
         const RECAPTCHA_SITE_KEY = '6LcqXIYsAAAAAHTs7AKmf-bFd8Z59c1tiJOwE3u6';
 
         // Load events on page load
@@ -155,6 +156,10 @@
                 .getEvents();
         })();
 
+        /**
+         * Handles the form submission to generate a unique referral link.
+         * Validates fields, checks reCAPTCHA, and calls the server-side generateReferralLink function.
+         */
         function handleFormSubmit(event) {
             event.preventDefault();
 
@@ -184,7 +189,6 @@
             messageDiv.innerText = '';
             linkDiv.innerHTML = '';
 
-            // Note: recaptchaToken is passed as null for now as per instructions
             google.script.run
                 .withSuccessHandler(function (response) {
                     submitBtn.disabled = false;

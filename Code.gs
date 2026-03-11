@@ -24,11 +24,44 @@ function doGet() {
  */
 function generateReferralLink(email, website, recaptchaToken) {
 
-  /*
-  // --- 1. Verify reCAPTCHA ---
-  
-  // --- End reCAPTCHA Verification ---
-  */
+  // 1. Verify reCAPTCHA using v2
+  if (!recaptchaToken) {
+    return { success: false, message: "reCAPTCHA token is missing." };
+  }
+
+  const verifyUrl = "https://www.google.com/recaptcha/api/siteverify";
+  const verifyOptions = {
+    method: "post",
+    payload: {
+      secret: RECAPTCHA_SECRET,
+      response: recaptchaToken
+    }
+  };
+
+  try {
+    const verifyResponse = UrlFetchApp.fetch(verifyUrl, verifyOptions);
+    const verifyResult = JSON.parse(verifyResponse.getContentText());
+
+    if (!verifyResult.success) {
+      console.error("reCAPTCHA Verification Failed: ", verifyResult);
+      return { success: false, message: "reCAPTCHA verification failed. Please try again." };
+    }
+
+    // Since "Verify the origin of reCAPTCHA solution" is disabled in the reCAPTCHA settings,
+    // we should manually check the hostname to ensure the request came from Apps Script/Sites.
+    const hostname = verifyResult.hostname || "";
+    const isGoogleDomain = hostname.endsWith("googleusercontent.com") ||
+      hostname.endsWith("google.com");
+
+    if (!isGoogleDomain) {
+      console.warn("reCAPTCHA Hostname Mismatch: ", hostname);
+      return { success: false, message: "Security Error: Invalid request origin." };
+    }
+
+  } catch (verifyError) {
+    console.error("reCAPTCHA API Error: ", verifyError);
+    return { success: false, message: "Error verifying reCAPTCHA. Please try again later." };
+  }
 
 
   // 2. Basic Input Validation

@@ -98,7 +98,7 @@
 <body>
     <div class="container">
         <div class="form-content">
-            <h2 id="form-title">Refer-a-Friend</h2>
+            <h2 id="form-title">GDGRefer-a-Friend</h2>
             <form id="referralForm" onsubmit="handleFormSubmit(event)">
                 <label for="email">Your Email Address:</label>
                 <input type="email" id="email" required placeholder="you@example.com">
@@ -107,6 +107,10 @@
                 <select id="website" required>
                     <option value="" disabled selected>Loading events...</option>
                 </select>
+
+                <!-- reCAPTCHA v2 widget -->
+                <div class="g-recaptcha" data-sitekey="6LcqXIYsAAAAAHTs7AKmf-bFd8Z59c1tiJOwE3u6"
+                    style="margin-top: 20px;"></div>
 
                 <button type="submit" id="submitBtn" disabled>Get My Unique Link</button>
             </form>
@@ -166,6 +170,12 @@
                 return;
             }
 
+            const recaptchaToken = grecaptcha.getResponse();
+            if (!recaptchaToken) {
+                alert("Please complete the reCAPTCHA.");
+                return;
+            }
+
             submitBtn.disabled = true;
             loadingDiv.style.display = 'block';
             resultArea.style.display = 'none';
@@ -179,10 +189,11 @@
                     submitBtn.disabled = false;
                     loadingDiv.style.display = 'none';
                     resultArea.style.display = 'block';
+                    grecaptcha.reset();
 
                     if (response.success) {
                         resultArea.className = 'success';
-                        messageDiv.innerText = "Success! Here is your unique referral link:";
+                        messageDiv.innerText = "Success! Here is your unique referral link to share:";
                         linkDiv.innerHTML = '<a href="' + response.link + '" target="_blank">' + response.link + '</a>';
                     } else {
                         resultArea.className = 'error';
@@ -195,8 +206,9 @@
                     resultArea.style.display = 'block';
                     resultArea.className = 'error';
                     messageDiv.innerText = "Fatal Error: Failed to connect to server.";
+                    grecaptcha.reset();
                 })
-                .generateReferralLink(email, website, null);
+                .generateReferralLink(email, website, recaptchaToken);
         }
     </script>
 </body>

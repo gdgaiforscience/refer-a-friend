@@ -7,6 +7,8 @@ const SPREADSHEET_ID = PropertiesService.getScriptProperties().getProperty('SHEE
 const SHEET_NAME = 'leaderboard';
 // https://www.google.com/u/1/recaptcha/admin/create
 const RECAPTCHA_SECRET = PropertiesService.getScriptProperties().getProperty('RECAPTCHA_SECRET');
+// Secret key used to hash emails
+const HMAC_SECRET = PropertiesService.getScriptProperties().getProperty('HMAC_SECRET');
 
 
 /**
@@ -111,11 +113,14 @@ function generateReferralLink(email, website, recaptchaToken) {
 
   // 6. Generate Link
   try {
-    const encodedEmail = Utilities.base64EncodeWebSafe(email);
+    // Hash the email, take first 6 bytes only, 1/68 billion collision chance..
+    const hashedEmail = Utilities.base64EncodeWebSafe(
+      Utilities.computeHmacSha256Signature(email.toLowerCase(), HMAC_SECRET).slice(0, 6)
+    ).replace(/=+$/, '');
     const apiUrl = "https://api-ssl.bitly.com/v4/bitlinks";
     const linkTitle = "GDG REFER: " + selectedEvent.name;
     const separator = website.includes('?') ? '&' : '?';
-    const longUrl = website + separator + 'ref_user=' + encodedEmail;
+    const longUrl = website + separator + 'ref_user=' + hashedEmail;
     console.log("Long URL: ", longUrl);
 
     const payload = {
@@ -150,7 +155,7 @@ function generateReferralLink(email, website, recaptchaToken) {
       // Update spreadsheet
       try {
         const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_NAME);
-        sheet.appendRow([new Date(), email, website, bitlyLink, encodedEmail]);
+        sheet.appendRow([new Date(), email, website, bitlyLink, hashedEmail]);
       } catch (sheetError) {
         console.error("Sheet Error (Append): ", sheetError);
         return { success: false, message: "An internal server error occurred while logging. Please notify gdgforscience@gmail.com" };

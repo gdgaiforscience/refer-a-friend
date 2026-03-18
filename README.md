@@ -6,8 +6,9 @@ A free, serverless referral tracker for GDG events, built with **Google Apps Scr
 
 | File | Purpose |
 |---|---|
-| `Code.gs` | Apps Script backend — generates Bitly links, manages rate limiting and reCAPTCHA verification, logs referrals |
-| `Index.html` | Single-file frontend — pure HTML/CSS/JS with reCAPTCHA v3 |
+| `Code.gs` | Apps Script backend — generates Bitly links, manages rate limiting, HMAC email hashing, and reCAPTCHA verification, logs referrals |
+| `Index.html` | Single-page frontend — pure HTML/CSS/JS with reCAPTCHA v2 checkbox |
+| `analyze_links.py` | Python script for local performance analysis — fetches click counts per link and generates a visualization |
 
 ### Google Sheet structure
 
@@ -16,24 +17,26 @@ The script expects a Google Sheet with two tabs. You must create these manually:
 | Tab | Columns / Usage |
 |---|---|
 | `events` | Row 1: Headers (e.g., `event`, `event_url`). Row 2+: Event names in column A, Event URLs in column B. |
-| `leaderboard` | Used for logging generated links. Columns will be: `Timestamp`, `Email`, `Website`, `Bitly Link`. |
+| `leaderboard` | Used for logging generated links. Columns will be: `Timestamp`, `Email`, `Website`, `Bitly Link`, `HashedEmail`. |
 
 ---
 
-## Deployment
+## Deployment — Apps Script & Web App
 
 ### Step 1 — Create the Google Sheet
 
 1. Go to [Google Sheets](https://sheets.google.com) and create a new blank spreadsheet.
 2. Create two tabs named exactly: `events` and `leaderboard`.
 3. Add a header row to `events` and fill in your target events.
-4. Copy the **Sheet ID** from the URL:
+4. Add a header row to `leaderboard` with columns: `Timestamp`, `Email`, `Website`, `Bitly Link`, `HashedEmail`.
+5. Copy the **Sheet ID** from the URL:
    `https://docs.google.com/spreadsheets/d/`**`SHEET_ID`**`/edit`
 
 ### Step 2 — Create the reCAPTCHA Keys
 
-1. Visit the [reCAPTCHA Admin Console](https://www.google.com/recaptcha/admin/create) and create a new **reCAPTCHA v3** site.
-2. Copy your **Site Key** and **Secret Key**.
+1. Visit the [reCAPTCHA Admin Console](https://www.google.com/recaptcha/admin/create) and create a new **reCAPTCHA v2 (Checkbox)** site. 
+2. Add your deployment domain (usually `script.google.com`) to the allowed domains list.
+3. Copy your **Site Key** and **Secret Key**.
 
 ### Step 3 — Create the Apps Script project
 
@@ -43,7 +46,7 @@ The script expects a Google Sheet with two tabs. You must create these manually:
 4. Click **+ (Add file) → HTML**, name it exactly **`Index`** (no extension — Apps Script adds `.html` automatically).
 5. Paste the contents of **`Index.html`** into the new `Index.html` file.
 6. In `Index.html`, replace the reCAPTCHA Site Key placeholder with your actual **Site Key** in two places:
-   - In the `<script src="...">` tag in the `<head>`.
+   - In the `data-sitekey` attribute of the `<div class="g-recaptcha" ...>` tag.
    - In the `const RECAPTCHA_SITE_KEY = '...';` variable in the JavaScript block.
 
 ### Step 4 — Configure Script Properties
@@ -51,12 +54,12 @@ The script expects a Google Sheet with two tabs. You must create these manually:
 Sensitive credentials are automatically loaded from Script Properties securely:
 
 1. In the Apps Script editor, go to **Project Settings** (gear icon in the left sidebar).
-2. Scroll to **Script Properties** and click **Add script property** to add the following three properties:
-   - `SHEET_ID` = your Google Sheet ID (from Step 1)
-   - `BITLY_TOKEN` = your Bitly API Generic Access Token
-   - `RECAPTCHA_SECRET` = your reCAPTCHA Secret Key (from Step 2)
-
-*(Note: The script will automatically fetch your `BITLY_GROUP_GUID` on its first run and cache it so you don't need to specify it manually).*
+2. Scroll to **Script Properties** and click **Add script property** to add the following:
+   - `SHEET_ID`: Your Google Sheet ID (from Step 1).
+   - `BITLY_TOKEN`: Your Bitly API Generic Access Token.
+   - `BITLY_GROUP_GUID`: Your Bitly Group GUID (usually found in Bitly account settings).
+   - `RECAPTCHA_SECRET`: Your reCAPTCHA Secret Key (from Step 2).
+   - `HMAC_SECRET`: A long random string used to hash user emails (this protects email privacy in short links).
 
 ### Step 5 — First deploy
 
@@ -70,25 +73,54 @@ Sensitive credentials are automatically loaded from Script Properties securely:
 
 ---
 
-## Updating events
+## Deployment — Link Analysis Tools
 
-Edit the `events` tab in the Google Sheet at any time — no redeployment needed. New events will appear in the frontend dropdown automatically.
+A Python script is provided to analyze the performance of your referral links locally.
 
-| event_name | event_url |
-|---|---|
-| GDG AI for Science - March Meetup | https://gdg.community.dev/events/details/... |
+### Step 1 — Local Setup
+
+1. Ensure you have Python 3.x installed.
+2. Create a virtual environment and install dependencies:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   pip install requests python-dotenv matplotlib pandas
+   ```
+
+### Step 2 — Configure Environment
+
+1. Create a `.env` file in the root directory (you can copy `.env.example`):
+   ```bash
+   cp .env.example .env
+   ```
+2. Fill in your credentials:
+   - `BITLY_TOKEN`: Your Bitly API token.
+   - `BITLY_GROUP_GUID`: Your Bitly Group GUID.
+   - `TAG`: The tag used for tracking (default in `Code.gs` is `gdg-track`).
+
+### Step 3 — Run Analysis
+
+1. Run the analysis script:
+   ```bash
+   python analyze_links.py
+   ```
+2. The script will output a table of clicks per link to the terminal and save a visualization plot as **`referral_stats.png`**.
 
 ---
 
+## Privacy & Security
+
+- **Email Hashing**: Emails are **not** exposed in plain text in the short links. They are hashed using HMAC-SHA256 with a secret salt (`HMAC_SECRET`). Only the first 6 bytes of the hash are used, providing high collision resistance while keeping links short.
+- **Rate Limiting**: Users are limited to 10 link generations per day (per email) to prevent abuse.
+- **reCAPTCHA**: Protection against automated link generation bots.
+- **Storage**: User emails are stored in plain text **only** in the private Google Sheet linked to the deployment.
+
 ## How it works
 
-1. A user enters their email and selects an event securely protected by reCAPTCHA v3.
+1. A user enters their email and selects an event securely protected by reCAPTCHA v2.
 2. The frontend triggers `generateReferralLink` in `Code.gs`.
-3. The backend validates the email, enforces a daily rate limit per email, and validates the reCAPTCHA score.
-4. The backend calls the Bitly API to create a unique `goo.gle/...` short link pointing to the event URL, tagged with the user's base64-encoded email.
+3. The backend validates the email, enforces a daily rate limit, and validates the reCAPTCHA solution.
+4. The backend calls the Bitly API to create a unique `goo.gle/...` short link pointing to the event URL, tagged with the user's hashed email (as a `ref_user` parameter).
 5. The generated trackable link is stored in the `leaderboard` tab.
-6. The user shares their link with friends. Bitly tracks all clicks on each link.
-
-## Privacy
-
-Emails are stored **in plain text** in the Google Sheet, which is owned by and accessible only to the Google account that deployed the script. API tokens and secrets are stored securely in Apps Script's Script Properties and are never exposed to end users.
+6. The user shares their link. Bitly tracks all clicks on each link.
+7. Use `analyze_links.py` to pull these stats and visualize them for a campaign report!
